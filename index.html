@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArkiLeads Europe</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --cream:        #F2EDE3;
+  --cream-dark:   #E8E0D0;
+  --cream-mid:    #EDE6D8;
+  --forest:       #3B5240;
+  --forest-mid:   #4A6350;
+  --forest-light: #5C7A63;
+  --forest-pale:  #8FAF95;
+  --forest-ghost: #D4E4D7;
+  --ink:          #1E2820;
+  --ink-mid:      #3A4A3D;
+  --muted:        #7A8C7D;
+  --strong-green: #2E7D32;
+  --watch-amber:  #B8860B;
+  --econ-red:     #B94040;
+  --struct-blue:  #2E5F8A;
+  --border:       #D5CDBB;
+  --white:        #FFFFFF;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; }
+
+/* HEADER */
+header {
+  background: var(--forest); padding: 0 48px; height: 64px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+  border-bottom: 1px solid var(--forest-mid);
+}
+.header-brand { display: flex; align-items: baseline; gap: 12px; }
+.header-brand h1 {
+  font-family: 'Playfair Display', serif; font-size: 22px;
+  font-weight: 700; color: var(--cream); letter-spacing: 0.01em;
+}
+.header-brand span { font-size: 12px; color: var(--forest-pale); font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; }
+.header-stats { display: flex; gap: 32px; }
+.hstat { text-align: center; }
+.hstat-num { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 600; color: var(--cream); }
+.hstat-label { font-size: 10px; color: var(--forest-pale); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* CALLOUT BANNER */
+.callout-banner {
+  background: var(--forest-ghost); border-bottom: 1px solid var(--border);
+  padding: 10px 48px; display: flex; align-items: center; gap: 16px;
+}
+.callout-num {
+  font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; color: var(--forest);
+}
+.callout-text { font-size: 13px; color: var(--ink-mid); line-height: 1.5; }
+.callout-text strong { color: var(--forest); }
+
+/* FILTERS */
+.filter-bar {
+  background: var(--cream-dark); border-bottom: 1px solid var(--border);
+  padding: 14px 48px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+}
+.filter-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap; }
+.filter-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.filter-btn {
+  padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border);
+  background: var(--white); font-size: 12px; font-family: 'Inter', sans-serif;
+  font-weight: 500; color: var(--ink-mid); cursor: pointer; transition: all 0.15s ease;
+  position: relative;
+}
+.filter-btn:hover { border-color: var(--forest-light); color: var(--forest); }
+.filter-btn.active { background: var(--forest); color: var(--white); border-color: var(--forest); }
+.filter-btn.fit-strong.active { background: var(--strong-green); border-color: var(--strong-green); }
+.filter-btn.fit-watch.active  { background: var(--watch-amber);  border-color: var(--watch-amber); }
+.filter-btn.fit-econ.active   { background: var(--econ-red);     border-color: var(--econ-red); }
+.filter-btn.fit-struct.active { background: var(--struct-blue);  border-color: var(--struct-blue); }
+.filter-divider { width: 1px; height: 24px; background: var(--border); }
+.clear-btn {
+  margin-left: auto; padding: 6px 14px; border-radius: 20px;
+  border: 1.5px solid var(--border); background: transparent;
+  font-size: 12px; font-family: 'Inter', sans-serif; color: var(--muted); cursor: pointer; transition: all 0.15s;
+}
+.clear-btn:hover { color: var(--ink); border-color: var(--ink-mid); }
+
+/* TOOLTIP */
+.icp-tooltip {
+  position: fixed; z-index: 9999;
+  background: var(--ink); color: var(--cream);
+  padding: 10px 14px; border-radius: 8px;
+  font-size: 12px; line-height: 1.6;
+  max-width: 280px; pointer-events: none;
+  opacity: 0; transition: opacity 0.15s;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+.map-tooltip {
+  position: fixed; z-index: 9999;
+  background: var(--ink); color: var(--cream);
+  padding: 6px 10px; border-radius: 6px;
+  font-size: 11px; pointer-events: none;
+  opacity: 0; transition: opacity 0.15s;
+}
+
+/* MAP */
+.map-section {
+  padding: 40px 48px; display: grid;
+  grid-template-columns: 1fr 380px; gap: 32px; min-height: 600px;
+}
+.map-container {
+  background: var(--white); border-radius: 12px;
+  border: 1px solid var(--border); overflow: hidden; position: relative;
+}
+.map-title {
+  position: absolute; top: 16px; left: 20px; z-index: 10;
+  font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+#europe-map { width: 100%; height: 100%; min-height: 520px; }
+.map-legend {
+  position: absolute; bottom: 16px; left: 20px;
+  background: rgba(255,255,255,0.95); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--muted);
+}
+.map-legend-title { font-weight: 600; margin-bottom: 6px; color: var(--ink-mid); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
+.map-hint { position: absolute; bottom: 16px; right: 16px; font-size: 10px; color: var(--muted); font-style: italic; }
+
+/* SIDE PANEL */
+.side-panel { display: flex; flex-direction: column; gap: 16px; }
+.panel-box { background: var(--white); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+.panel-header {
+  background: var(--forest); padding: 16px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.panel-header h3 { font-family: 'Playfair Display', serif; font-size: 16px; color: var(--cream); font-weight: 600; }
+.panel-header-sub { font-size: 11px; color: var(--forest-pale); }
+.panel-empty { padding: 40px 24px; text-align: center; color: var(--muted); font-size: 13px; }
+.panel-empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
+.country-stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); }
+.country-stat { background: var(--cream-mid); padding: 12px 16px; text-align: center; }
+.cstat-num { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 600; color: var(--forest); }
+.cstat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-top: 2px; }
+.firms-list { overflow-y: auto; max-height: 340px; }
+.firm-card {
+  padding: 16px 20px; border-bottom: 1px solid var(--cream-dark);
+  cursor: pointer; transition: background 0.12s; display: flex; flex-direction: column; gap: 8px;
+}
+.firm-card:hover { background: var(--cream-mid); }
+.firm-card:last-child { border-bottom: none; }
+.firm-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.firm-name { font-weight: 600; font-size: 13px; color: var(--ink); flex: 1; }
+.fit-badge {
+  font-size: 10px; font-weight: 600; padding: 3px 8px;
+  border-radius: 10px; white-space: nowrap; letter-spacing: 0.04em;
+  cursor: help; position: relative;
+}
+.fit-Strong    { background: #D4EDDA; color: #1a5e1f; }
+.fit-Watch     { background: #FFF3CD; color: #856404; }
+.fit-Economics { background: #F8D7DA; color: #7B1D1D; }
+.fit-Structure { background: #D1E7F8; color: #1a3d5c; }
+.firm-meta { display: flex; gap: 12px; font-size: 11px; color: var(--muted); }
+.firm-detail-row { display: flex; justify-content: space-between; font-size: 11px; }
+.firm-detail-label { color: var(--muted); }
+.firm-detail-val { color: var(--ink-mid); font-weight: 500; }
+
+/* FIRM DETAIL */
+.firm-detail-panel { padding: 20px; }
+.detail-back { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--forest); cursor: pointer; margin-bottom: 16px; font-weight: 500; }
+.detail-back:hover { opacity: 0.7; }
+.detail-firm-name { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.detail-location { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.detail-field { background: var(--cream-mid); border-radius: 8px; padding: 10px 12px; }
+.detail-field-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
+.detail-field-val { font-size: 13px; font-weight: 600; color: var(--ink); }
+.detail-notes { background: var(--forest-ghost); border-radius: 8px; padding: 12px 14px; font-size: 12px; color: var(--ink-mid); line-height: 1.6; margin-bottom: 14px; border-left: 3px solid var(--forest-light); }
+.detail-website { display: inline-flex; align-items: center; gap: 6px; background: var(--forest); color: var(--cream); padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 500; text-decoration: none; transition: background 0.15s; }
+.detail-website:hover { background: var(--forest-mid); }
+
+/* ANALYTICS */
+.analytics-section { padding: 0 48px 60px; }
+.section-heading { margin-bottom: 32px; padding-top: 48px; border-top: 1px solid var(--border); }
+.section-eyebrow { font-size: 11px; font-weight: 600; color: var(--forest-light); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 6px; }
+.section-title { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+.section-sub { font-size: 14px; color: var(--muted); max-width: 560px; line-height: 1.6; }
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+.chart-card { background: var(--white); border-radius: 12px; border: 1px solid var(--border); padding: 24px; }
+.chart-card.full-width { grid-column: 1 / -1; }
+.chart-title { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+.chart-sub { font-size: 11px; color: var(--muted); margin-bottom: 20px; }
+
+/* COUNTRY BARS */
+.bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.bar-label { font-size: 12px; color: var(--ink-mid); width: 120px; flex-shrink: 0; text-align: right; }
+.bar-track { flex: 1; height: 24px; background: var(--cream-dark); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+.bar-count { font-size: 11px; font-weight: 600; color: var(--ink-mid); width: 24px; }
+
+/* DONUT */
+.donut-wrap { display: flex; align-items: center; gap: 32px; justify-content: center; }
+.donut-legend { display: flex; flex-direction: column; gap: 10px; }
+.donut-leg-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-mid); cursor: help; }
+.donut-leg-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.donut-leg-val { font-weight: 600; margin-left: auto; padding-left: 12px; }
+
+/* VINTAGE CHART */
+.vintage-chart-wrap {
+  display: flex; align-items: flex-end; gap: 6px;
+  height: 160px; padding-bottom: 28px; position: relative;
+}
+.vintage-col {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-end;
+  height: calc(100% - 28px); gap: 4px; position: relative;
+}
+.vintage-bar { width: 100%; border-radius: 4px 4px 0 0; transition: opacity 0.2s; }
+.vintage-bar:hover { opacity: 0.75; }
+.vintage-num { font-size: 11px; font-weight: 600; color: var(--ink); }
+.vintage-year-label {
+  position: absolute; bottom: -24px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; color: var(--muted); white-space: nowrap;
+}
+
+/* RAISE WINDOW CARDS */
+.raise-cards { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.raise-card {
+  flex: 1; min-width: 120px; background: var(--white);
+  border: 2px solid var(--border); border-radius: 10px;
+  padding: 20px 16px; text-align: center; cursor: pointer;
+  transition: all 0.2s; position: relative;
+}
+.raise-card:hover { border-color: var(--forest); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,82,64,0.12); }
+.raise-card.active { border-color: var(--forest); background: var(--forest-ghost); }
+.raise-card-num {
+  font-family: 'Playfair Display', serif; font-size: 40px;
+  font-weight: 700; line-height: 1;
+}
+.raise-card-year { font-size: 13px; font-weight: 600; color: var(--ink-mid); margin-top: 6px; }
+.raise-card-label { font-size: 10px; color: var(--muted); margin-top: 3px; }
+.raise-bar { margin-top: 12px; height: 4px; border-radius: 2px; background: var(--cream-dark); }
+.raise-bar-fill { height: 100%; border-radius: 2px; }
+.raise-hint { font-size: 11px; color: var(--muted); font-style: italic; margin-bottom: 0; }
+
+/* PRIORITY OUTREACH GRID */
+.priority-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px; margin-top: 4px;
+}
+.priority-card {
+  background: var(--cream-mid); border-radius: 10px;
+  border: 1px solid var(--border); padding: 16px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.priority-card-name { font-weight: 600; font-size: 14px; color: var(--ink); }
+.priority-card-meta { font-size: 11px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+.priority-card-raise {
+  font-size: 11px; font-weight: 600; color: var(--forest);
+  background: var(--forest-ghost); padding: 3px 8px;
+  border-radius: 6px; display: inline-block; width: fit-content;
+}
+.priority-card-link { font-size: 11px; color: var(--forest); text-decoration: none; font-weight: 500; }
+.priority-card-link:hover { text-decoration: underline; }
+
+/* TABLE */
+.firm-table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th {
+  background: var(--forest); color: var(--cream); padding: 12px 16px;
+  text-align: left; font-weight: 500; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.07em; white-space: nowrap; cursor: pointer; user-select: none;
+}
+thead th:hover { background: var(--forest-mid); }
+tbody tr { border-bottom: 1px solid var(--cream-dark); }
+tbody tr:hover { background: var(--cream-mid); }
+tbody td { padding: 11px 16px; color: var(--ink-mid); white-space: nowrap; }
+tbody td:first-child { font-weight: 500; color: var(--ink); }
+.table-search { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.table-search input {
+  flex: 1; padding: 9px 14px; border: 1.5px solid var(--border);
+  border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif;
+  background: var(--white); color: var(--ink); outline: none; transition: border-color 0.15s;
+}
+.table-search input:focus { border-color: var(--forest-light); }
+.table-count { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.table-active-filter {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--forest-ghost); border: 1px solid var(--forest-pale);
+  border-radius: 12px; padding: 3px 10px; font-size: 11px;
+  color: var(--forest); font-weight: 500;
+}
+.table-active-filter button {
+  background: none; border: none; cursor: pointer;
+  color: var(--forest); font-size: 13px; line-height: 1; padding: 0;
+}
+
+.firms-list::-webkit-scrollbar { width: 4px; }
+.firms-list::-webkit-scrollbar-track { background: transparent; }
+.firms-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+@media (max-width: 900px) {
+  .map-section { grid-template-columns: 1fr; padding: 20px; }
+  .charts-grid { grid-template-columns: 1fr; }
+  .filter-bar, .analytics-section, header, .callout-banner { padding-left: 20px; padding-right: 20px; }
+  .header-stats { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOOLTIPS -->
+<div class="icp-tooltip" id="icp-tooltip"></div>
+<div class="map-tooltip" id="map-tooltip"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-brand">
+    <h1>ArkiLeads Europe</h1>
+    <span>Private Equity ICP Intelligence</span>
+  </div>
+  <div class="header-stats">
+    <div class="hstat"><div class="hstat-num" id="stat-total">41</div><div class="hstat-label">Firms Tracked</div></div>
+    <div class="hstat"><div class="hstat-num" id="stat-strong">20</div><div class="hstat-label">Strong ICP Fit</div></div>
+    <div class="hstat"><div class="hstat-num" id="stat-markets">10</div><div class="hstat-label">Markets</div></div>
+    <div class="hstat"><div class="hstat-num">2017–21</div><div class="hstat-label">Target Vintage</div></div>
+  </div>
+</header>
+
+<!-- CALLOUT BANNER -->
+<div class="callout-banner">
+  <div class="callout-num" id="callout-num">28</div>
+  <div class="callout-text"><strong id="callout-strong">28 of 41 firms</strong> are approaching their next raise within the next 24 months — the window where structural pressure on performance and differentiation peaks.</div>
+</div>
+
+<!-- FILTERS -->
+<div class="filter-bar">
+  <span class="filter-label">ICP Fit</span>
+  <div class="filter-group">
+    <button class="filter-btn fit-strong" data-filter="fit" data-val="Strong" data-tip="Strong">✅ Strong</button>
+    <button class="filter-btn fit-watch"  data-filter="fit" data-val="Watch"   data-tip="Watch">⚠️ Watch</button>
+    <button class="filter-btn fit-econ"   data-filter="fit" data-val="Economics" data-tip="Economics">⚠️ Economics</button>
+    <button class="filter-btn fit-struct" data-filter="fit" data-val="Structure" data-tip="Structure">⚠️ Structure</button>
+  </div>
+  <div class="filter-divider"></div>
+  <span class="filter-label">Fund Size</span>
+  <div class="filter-group">
+    <button class="filter-btn" data-filter="band" data-val="LMM">LMM</button>
+    <button class="filter-btn" data-filter="band" data-val="MM">MM</button>
+    <button class="filter-btn" data-filter="band" data-val="UMM">UMM</button>
+  </div>
+  <div class="filter-divider"></div>
+  <span class="filter-label">Next Raise</span>
+  <div class="filter-group">
+    <button class="filter-btn" data-filter="raise" data-val="2025">2025</button>
+    <button class="filter-btn" data-filter="raise" data-val="2026">2026</button>
+    <button class="filter-btn" data-filter="raise" data-val="2027">2027+</button>
+  </div>
+  <button class="clear-btn" id="clear-filters">Clear all</button>
+</div>
+
+<!-- MAP + PANEL -->
+<div class="map-section">
+  <div class="map-container">
+    <div class="map-title">Click a country to explore firms</div>
+    <div id="europe-map"></div>
+    <div class="map-legend">
+      <div class="map-legend-title">Firms per country</div>
+      <div class="legend-row"><div class="legend-swatch" style="background:#D4E4D7"></div><span>1–2</span></div>
+      <div class="legend-row"><div class="legend-swatch" style="background:#8FAF95"></div><span>3–4</span></div>
+      <div class="legend-row"><div class="legend-swatch" style="background:#5C7A63"></div><span>5–8</span></div>
+      <div class="legend-row"><div class="legend-swatch" style="background:#3B5240"></div><span>9+</span></div>
+    </div>
+    <div class="map-hint">Click any highlighted country</div>
+  </div>
+  <div class="side-panel">
+    <div class="panel-box" id="summary-box">
+      <div class="panel-header">
+        <div>
+          <h3 id="panel-country-name">Select a Country</h3>
+          <div class="panel-header-sub" id="panel-country-sub">Click a country on the map</div>
+        </div>
+        <div id="panel-fit-pct" style="font-family:'Playfair Display',serif;font-size:28px;color:var(--cream);font-weight:700;"></div>
+      </div>
+      <div id="country-stats-row" style="display:none">
+        <div class="country-stat-row">
+          <div class="country-stat"><div class="cstat-num" id="cs-total">—</div><div class="cstat-label">Total Firms</div></div>
+          <div class="country-stat"><div class="cstat-num" id="cs-strong">—</div><div class="cstat-label">Strong Fit</div></div>
+          <div class="country-stat"><div class="cstat-num" id="cs-watch">—</div><div class="cstat-label">Watch / Flag</div></div>
+        </div>
+      </div>
+      <div id="panel-empty" class="panel-empty">
+        <div class="panel-empty-icon">🗺</div>
+        <div>Click a shaded country on the map<br>to see firms in that market</div>
+      </div>
+      <div class="firms-list" id="firms-list" style="display:none"></div>
+    </div>
+    <div class="panel-box" id="firm-detail-box" style="display:none">
+      <div class="firm-detail-panel" id="firm-detail-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ANALYTICS -->
+<div class="analytics-section">
+  <div class="section-heading">
+    <div class="section-eyebrow">Market Intelligence</div>
+    <div class="section-title">ICP Landscape at a Glance</div>
+    <div class="section-sub">41 European buyout firms mapped against the ICP framework — fund size, vintage timing, structure, and AI temperament.</div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Firms by Market</div>
+      <div class="chart-sub">Total ICP-mapped firms per country</div>
+      <div id="chart-country"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">ICP Fit Distribution</div>
+      <div class="chart-sub">Hover each label for a full explanation</div>
+      <div class="donut-wrap">
+        <svg id="donut-svg" width="160" height="160"></svg>
+        <div class="donut-legend" id="donut-legend"></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Fund Vintage Distribution</div>
+      <div class="chart-sub">When current funds were raised — earlier = approaching next raise</div>
+      <div id="chart-vintage"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Priority Outreach — Strong ICP Fits</div>
+      <div class="chart-sub">20 firms that clear every ICP gate, sorted by urgency</div>
+      <div id="priority-grid"></div>
+    </div>
+    <div class="chart-card full-width" id="raise-section">
+      <div class="chart-title">Next Raise Window — Priority Pipeline</div>
+      <div class="chart-sub">Click a card to filter the firm database below and scroll automatically</div>
+      <div class="raise-cards" id="raise-cards"></div>
+      <p class="raise-hint">Firms in the 2025–26 window are highest priority — actively preparing for their next raise and most receptive to solutions that sharpen their LP narrative.</p>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="chart-card" id="firm-table-section">
+    <div class="chart-title">Full Firm Database</div>
+    <div class="chart-sub">All 41 firms — click column headers to sort, or click a raise window above to filter</div>
+    <div class="table-search">
+      <input type="text" id="table-search" placeholder="Search by firm name, country, or sector…">
+      <div id="table-active-filter-wrap"></div>
+      <span class="table-count" id="table-count">41 firms</span>
+    </div>
+    <div class="firm-table-wrap">
+      <table id="firm-table">
+        <thead>
+          <tr>
+            <th data-sort="name">Firm ↕</th>
+            <th data-sort="country">Country ↕</th>
+            <th data-sort="city">City ↕</th>
+            <th data-sort="icp_fit">ICP Fit ↕</th>
+            <th data-sort="icp_band">Band ↕</th>
+            <th data-sort="fund_size_band">Fund Size ↕</th>
+            <th data-sort="current_fund">Current Fund ↕</th>
+            <th data-sort="vintage">Vintage ↕</th>
+            <th data-sort="structure">Structure ↕</th>
+            <th data-sort="next_raise_window">Next Raise ↕</th>
+            <th>Website</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const FIRMS = [{"id":"queens-park-equity","name":"Queen's Park Equity","country":"UK","city":"London","lat":51.5074,"lng":-0.1278,"strategy":"Buyout","icp_band":"LMM","fund_size_band":"$100M–500M","current_fund":"QPE Fund II","vintage":2025,"fund_number":"Fund II","structure":"Independent","icp_fit":"Strong","next_raise_window":"2027–28","notes":"Fund II newly closed (£305m, oversubscribed, 4 months). Sweet-spot fit. Next raise ~24–36 months. Low internal AI risk.","website":"https://www.qpequity.com","sectors":"Healthcare, Education, Tech Services"},{"id":"tenzing-pe","name":"Tenzing Private Equity","country":"UK","city":"London","lat":51.5074,"lng":-0.1278,"strategy":"Buyout","icp_band":"LMM/MM","fund_size_band":"$100M–500M","current_fund":"Tenzing II","vintage":2021,"fund_number":"Fund II","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"Fund II 2021 vintage ~£400m. Tech-focused — strong AI temperament. Buyer authority at partner level.","website":"https://www.tenzingpe.com","sectors":"B2B Tech, Tech-Enabled Services"},{"id":"palatine-pe","name":"Palatine Private Equity","country":"UK","city":"Manchester","lat":53.4808,"lng":-2.2426,"strategy":"Buyout","icp_band":"LMM","fund_size_band":"$100M–500M","current_fund":"Palatine V","vintage":2025,"fund_number":"Fund V","structure":"Independent","icp_fit":"Watch","next_raise_window":"2027–28","notes":"Fund V closed Apr 2025 (£254m). Northern England specialist. Fund III+ — confirm partner-level buying authority.","website":"https://www.palatinepe.com","sectors":"Business Services, Healthcare, Sustainability"},{"id":"bowmark-capital","name":"Bowmark Capital","country":"UK","city":"London","lat":51.5074,"lng":-0.1278,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Bowmark VII","vintage":2024,"fund_number":"Fund VII","structure":"Independent","icp_fit":"Watch","next_raise_window":"2027–28","notes":"Fund VII £900m closed 2024. Long-standing independent. Fund III+ — confirm partner-level buying authority.","website":"https://www.bowmark.com","sectors":"Business Services, Healthcare, Tech"},{"id":"eci-partners","name":"ECI Partners","country":"UK","city":"London","lat":51.5074,"lng":-0.1278,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"ECI 12","vintage":2023,"fund_number":"Fund XII","structure":"Independent","icp_fit":"Watch","next_raise_window":"2026–27","notes":"Fund XII £1bn closed 2023. Long-standing independent. Approaching next raise 2026-27. Confirm buyer authority.","website":"https://www.ecipartners.com","sectors":"Technology, Services"},{"id":"phoenix-equity","name":"Phoenix Equity Partners","country":"UK","city":"London","lat":51.5074,"lng":-0.1278,"strategy":"Buyout","icp_band":"LMM/MM","fund_size_band":"$100M–500M","current_fund":"Phoenix Fund VI","vintage":2021,"fund_number":"Fund VI","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"Founder-entrepreneur specialist. Fund VI 2021 vintage. Small independent team. Strong temperament.","website":"https://www.phoenixequitypartners.com","sectors":"Business Services, Consumer, Healthcare"},{"id":"mobeus","name":"Mobeus Equity Partners","country":"UK","city":"London","lat":51.5074,"lng":-0.1278,"strategy":"Buyout","icp_band":"LMM","fund_size_band":"$100M–500M","current_fund":"Mobeus V","vintage":2020,"fund_number":"Fund V","structure":"Independent","icp_fit":"Economics","next_raise_window":"2025","notes":"VCT-backed LMM. Fund ~£150-200m. Check ACV economics against management fee base before qualifying.","website":"https://www.mobeus.co.uk","sectors":"Business Services, Tech, Healthcare"},{"id":"cbpe-capital","name":"CBPE Capital","country":"UK","city":"London","lat":51.5074,"lng":-0.1278,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"CBPE Fund XI","vintage":2025,"fund_number":"Fund XI","structure":"Independent","icp_fit":"Watch","next_raise_window":"2028","notes":"Fund XI £714m hard cap, closed 2025. 30+ year independent. Buying authority at senior partner level.","website":"https://www.cbpe.co.uk","sectors":"Business Services, Healthcare, Consumer"},{"id":"graphite-capital","name":"Graphite Capital","country":"UK","city":"London","lat":51.5074,"lng":-0.1278,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Graphite 9","vintage":2019,"fund_number":"Fund IX","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025","notes":"Fund IX ~2019 vintage — approaching or in next raise. Established independent MM firm. Good timing signal.","website":"https://www.graphitecapital.com","sectors":"Business Services, Healthcare, Consumer"},{"id":"horizon-capital","name":"Horizon Capital","country":"UK","city":"London","lat":51.5074,"lng":-0.1278,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Horizon 2018","vintage":2018,"fund_number":"Fund IV","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"£200m Fund 2018 vintage. UK mid-market generalist. Well within timing window.","website":"https://www.horizoncapital.co.uk","sectors":"Business Services, Tech, Consumer"},{"id":"nvm-pe","name":"NVM Private Equity","country":"UK","city":"Newcastle","lat":54.9783,"lng":-1.6178,"strategy":"Buyout","icp_band":"LMM","fund_size_band":"$100M–500M","current_fund":"NVM Vintage III","vintage":2018,"fund_number":"Fund III","structure":"Independent","icp_fit":"Economics","next_raise_window":"2025","notes":"£142m fund. Regional UK LMM. Active exits 2025. Check management fee base — may be below affordability floor.","website":"https://www.nvm.co.uk","sectors":"Technology, Business Services"},{"id":"inflexion","name":"Inflexion","country":"UK","city":"London","lat":51.5074,"lng":-0.1278,"strategy":"Buyout","icp_band":"MM/UMM","fund_size_band":"$500M–5B","current_fund":"Enterprise IV","vintage":2024,"fund_number":"Fund IV (Enterprise)","structure":"Independent","icp_fit":"Watch","next_raise_window":"2026–27","notes":"Large multi-strategy platform. Enterprise IV £1.1bn (LMM focused) is the best entry point. Monitor for in-house AI build risk.","website":"https://www.inflexion.com","sectors":"Business Services, Healthcare, Tech"},{"id":"kka-partners","name":"KKA Partners","country":"Germany","city":"Berlin","lat":52.52,"lng":13.405,"strategy":"Buyout","icp_band":"LMM","fund_size_band":"$100M–500M","current_fund":"KKA Fund II","vintage":2023,"fund_number":"Fund II","structure":"Independent","icp_fit":"Strong","next_raise_window":"2026–27","notes":"Founded 2018. Fund II €230m closed 2023 (oversubscribed). B2B services + healthcare. DACH-only. Perfect fund/vintage fit.","website":"https://www.kka-partners.com","sectors":"B2B Services, Healthcare"},{"id":"emeram-capital","name":"EMERAM Capital Partners","country":"Germany","city":"Munich","lat":48.1351,"lng":11.582,"strategy":"Buyout","icp_band":"LMM/MM","fund_size_band":"$100M–500M","current_fund":"EMERAM II","vintage":2021,"fund_number":"Fund II","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"DACH tech and services buyout. Fund II ~2021. Small Munich team. Low internal AI risk.","website":"https://www.emeram.com","sectors":"Tech-Enabled Services, DACH"},{"id":"genui","name":"GENUI","country":"Germany","city":"Hamburg","lat":53.5753,"lng":10.0153,"strategy":"Buyout","icp_band":"LMM","fund_size_band":"$100M–500M","current_fund":"GENUI Fund II","vintage":2021,"fund_number":"Fund II","structure":"Independent / Founder-led","icp_fit":"Strong","next_raise_window":"2025–26","notes":"Purpose-driven independent. Revenues €15-150m. Founded by entrepreneurs. Strong temperament and structure fit.","website":"https://www.genui.de","sectors":"Consumer, Education, Digital, Healthcare"},{"id":"capiton","name":"Capiton AG","country":"Germany","city":"Berlin","lat":52.52,"lng":13.405,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Capiton VI","vintage":2020,"fund_number":"Fund VI","structure":"Independent","icp_fit":"Watch","next_raise_window":"2025–26","notes":"€1.5bn AUM. Industrial / medtech / DACH. Fund VI ~2020 vintage. Confirm buyer authority.","website":"https://www.capiton.de","sectors":"Industrials, Medtech, Chemicals"},{"id":"finatem","name":"Finatem","country":"Germany","city":"Frankfurt","lat":50.1109,"lng":8.6821,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Finatem Fund II","vintage":2020,"fund_number":"Fund II","structure":"Independent / Partner-managed","icp_fit":"Strong","next_raise_window":"2025–26","notes":"Partner-managed DACH-only firm. Sales €25-125m target. Traditional industries. Fund II timing aligns well.","website":"https://www.finatem.de","sectors":"Traditional Industrials, Services"},{"id":"maxburg","name":"Maxburg Capital Partners","country":"Germany","city":"Munich","lat":48.1351,"lng":11.582,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Maxburg Fund III","vintage":2021,"fund_number":"Fund III","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"~€600m total fund volume. Long-term DACH Mittelstand. Flexible structures. Verify partner-level buying authority.","website":"https://www.maxburg.de","sectors":"Mittelstand, Industrials, Services"},{"id":"dbag","name":"Deutsche Beteiligungs AG","country":"Germany","city":"Frankfurt","lat":50.1109,"lng":8.6821,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"DBAG Fund VIII","vintage":2020,"fund_number":"Fund VIII","structure":"Listed (independent)","icp_fit":"Structure","next_raise_window":"2024–25","notes":"Listed firm — investment decisions independent but structure differs. Fund VIII €1.1bn 2020. Verify procurement path.","website":"https://www.dbag.de","sectors":"Industrials, IT Services, Healthcare"},{"id":"castik-capital","name":"Castik Capital","country":"Germany","city":"Munich","lat":48.1351,"lng":11.582,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"EPIC III","vintage":2024,"fund_number":"Fund III","structure":"Independent (founder-led)","icp_fit":"Watch","next_raise_window":"2027","notes":"EPIC III €2bn closed 2024. Pan-European. Partner-level buying authority confirmed. Fund III+.","website":"https://www.castik.com","sectors":"Pan-European, Diversified"},{"id":"ufenau","name":"Ufenau Capital Partners","country":"Switzerland","city":"Baar","lat":47.1949,"lng":8.5208,"strategy":"Buyout","icp_band":"MM/UMM","fund_size_band":"$500M–5B","current_fund":"Ufenau VIII","vintage":2025,"fund_number":"Fund VIII","structure":"Independent","icp_fit":"Watch","next_raise_window":"2028","notes":"€2.1bn Fund VIII closed June 2025. DACH/Benelux/UK. Growing platform — monitor for internal AI capability build.","website":"https://www.ufenau.com","sectors":"Business Services, IT, Education, Healthcare"},{"id":"capvis","name":"Capvis","country":"Switzerland","city":"Baar","lat":47.1949,"lng":8.5208,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Capvis V","vintage":2021,"fund_number":"Fund V","structure":"Independent","icp_fit":"Watch","next_raise_window":"2025–26","notes":"Founded 1990. ~32 portfolio companies. DACH specialist. Verify fund vintage and buying authority structure.","website":"https://www.capvis.com","sectors":"Services, Industrials, DACH"},{"id":"invision","name":"Invision","country":"Switzerland","city":"Zug","lat":47.1661,"lng":8.516,"strategy":"Buyout","icp_band":"LMM","fund_size_band":"$100M–500M","current_fund":"Invision VI","vintage":2020,"fund_number":"Fund VI","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"60+ investments in history. DACH-only. Succession + growth focus. Small team — low AI build risk.","website":"https://www.invision-equity.com","sectors":"Services, Industrials, DACH"},{"id":"nordic-capital-evolution","name":"Nordic Capital (Evolution I)","country":"Sweden","city":"Stockholm","lat":59.3293,"lng":18.0686,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Evolution I","vintage":2021,"fund_number":"Fund I","structure":"Independent (within NC)","icp_fit":"Strong","next_raise_window":"2025–26","notes":"Evolution Fund I 2021 vintage €1.2bn. Sweet-spot. Verify independent buying authority within Nordic Capital structure.","website":"https://www.nordiccapital.com","sectors":"Healthcare, Tech & Payments, Financial Services"},{"id":"trill-impact","name":"Trill Impact","country":"Sweden","city":"Stockholm","lat":59.3293,"lng":18.0686,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Trill Impact I","vintage":2021,"fund_number":"Fund I","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"Fund I ~€900m 2021. Nordics/DACH/Benelux. Impact buyout majority ownership. Next raise approaching.","website":"https://www.trillimpact.com","sectors":"Impact, Services, Industrials"},{"id":"norvestor","name":"Norvestor","country":"Norway","city":"Oslo","lat":59.9139,"lng":10.7522,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Norvestor IX","vintage":2023,"fund_number":"Fund IX","structure":"Independent","icp_fit":"Watch","next_raise_window":"2027–28","notes":"Fund IX €1.5bn 2023 (nearly 2x predecessor). Nordic-only. Qualifies Fund III+ with partner buying authority confirmed.","website":"https://www.norvestor.com","sectors":"Nordic Mid-Market, Diversified"},{"id":"fsn-capital","name":"FSN Capital","country":"Norway","city":"Oslo","lat":59.9139,"lng":10.7522,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"FSN Capital VI","vintage":2021,"fund_number":"Fund VI","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"Pan-Nordic buyout. Strong ESG. Top-20 HEC Paris ranking. Fund VI ~2021 vintage. Excellent track record.","website":"https://www.fsncapital.com","sectors":"Pan-Nordic, Diversified"},{"id":"verdane","name":"Verdane Capital","country":"Norway","city":"Oslo","lat":59.9139,"lng":10.7522,"strategy":"Buyout/Growth","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Verdane Idun II","vintage":2021,"fund_number":"Fund II","structure":"Independent","icp_fit":"Watch","next_raise_window":"2025–26","notes":"Top-20 HEC Paris ranking. Nordic tech growth/buyout. Fund II vintage aligns. Verify buyout predominates.","website":"https://www.verdane.com","sectors":"Tech, Software, Nordic"},{"id":"rivean-capital","name":"Rivean Capital","country":"Netherlands","city":"Amsterdam","lat":52.3676,"lng":4.9041,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Rivean Fund V","vintage":2022,"fund_number":"Fund V","structure":"Independent","icp_fit":"Watch","next_raise_window":"2026–27","notes":"Benelux specialist (IK Partners spinout). Top-20 HEC Paris ranking. Services and industrials. Fund V ~2022.","website":"https://www.rivean.com","sectors":"Business Services, Industrials, Benelux"},{"id":"main-capital","name":"Main Capital Partners","country":"Netherlands","city":"The Hague","lat":52.0705,"lng":4.3007,"strategy":"Buyout","icp_band":"LMM/MM","fund_size_band":"$100M–500M","current_fund":"Main Fund VII","vintage":2021,"fund_number":"Fund VII","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"Benelux/Nordic/DACH software buyout. Very active B2B SaaS. Highly AI-adjacent — strong temperament fit. Fund VII ~2021.","website":"https://www.maincapital.com","sectors":"B2B Software, SaaS"},{"id":"activa-capital","name":"Activa Capital","country":"France","city":"Paris","lat":48.8566,"lng":2.3522,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Activa Capital IV","vintage":2021,"fund_number":"Fund IV","structure":"100% Partner-owned","icp_fit":"Strong","next_raise_window":"2025–26","notes":"Cleanest structure on the list — 100% partner-owned. 5 partners. French mid-market. Fund IV ~2021. No platform approval risk.","website":"https://www.activacapital.com","sectors":"French Mid-Market, Diversified"},{"id":"lbo-france","name":"LBO France","country":"France","city":"Paris","lat":48.8566,"lng":2.3522,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"LBO France White","vintage":2020,"fund_number":"Fund VIII","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"Long-track independent French MM. Backs French + Italian companies. Fund VIII ~2020 vintage. Timing signal strong.","website":"https://www.lbofrance.com","sectors":"France & Italy, Diversified"},{"id":"qualium","name":"Qualium Investissement","country":"France","city":"Paris","lat":48.8566,"lng":2.3522,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Qualium Fund III","vintage":2020,"fund_number":"Fund III","structure":"Independent (BPI-backed)","icp_fit":"Structure","next_raise_window":"2025","notes":"BPI France investor — check whether procurement approval required. Otherwise strong French MM fit.","website":"https://www.qualium-investissement.com","sectors":"French Mid-Market, Diversified"},{"id":"21invest","name":"21 Invest","country":"France","city":"Paris","lat":48.8566,"lng":2.3522,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"21 Invest Fund V","vintage":2021,"fund_number":"Fund V","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"French + Italian roots. Active 2025 deployer. Fund V ~2021 vintage. Dual-country reach.","website":"https://www.21invest.com","sectors":"France & Italy, Business Services"},{"id":"wise-equity","name":"Wise Equity","country":"Italy","city":"Milan","lat":45.4654,"lng":9.1859,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Wise Equity V","vintage":2021,"fund_number":"Fund V","structure":"Independent","icp_fit":"Strong","next_raise_window":"2025–26","notes":"€1bn+ AUM. Italian SME specialist. Industrial tech + healthcare. Succession + buyout. Fund V ~2021 vintage.","website":"https://www.wiseequity.it","sectors":"Industrial Tech, Healthcare, Italian SME"},{"id":"charme-capital","name":"Charme Capital Partners","country":"Italy","city":"Milan","lat":45.4654,"lng":9.1859,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Charme Fund IV","vintage":2021,"fund_number":"Fund IV","structure":"Independent / Founder-led","icp_fit":"Strong","next_raise_window":"2025–26","notes":"Industrial + consumer brands. Pan-European with Italian base. Founded by di Montezemolo. Entrepreneurial culture.","website":"https://www.charmecapital.com","sectors":"Industrial, Consumer Brands"},{"id":"progressio","name":"Progressio SGR","country":"Italy","city":"Milan","lat":45.4654,"lng":9.1859,"strategy":"Buyout","icp_band":"LMM","fund_size_band":"$100M–500M","current_fund":"Progressio III","vintage":2020,"fund_number":"Fund III","structure":"Independent","icp_fit":"Economics","next_raise_window":"2025","notes":"Italian LMM. Small team. Growth + buyout. Fund ~€150-200m range. Check management fee affordability floor.","website":"https://www.progressiosgr.it","sectors":"Italian LMM, Growth"},{"id":"nb-renaissance","name":"NB Renaissance","country":"Italy","city":"Milan","lat":45.4654,"lng":9.1859,"strategy":"Buyout","icp_band":"MM/UMM","fund_size_band":"$500M–5B","current_fund":"NB Renaissance Fund III","vintage":2022,"fund_number":"Fund III","structure":"JV (Neuberger Berman + Intesa)","icp_fit":"Structure","next_raise_window":"2026","notes":"JV structure — likely requires Intesa Sanpaolo approval. Disqualify risk: verify independent buying authority before engaging.","website":"https://www.nbrenaissance.com","sectors":"Italian MM/UMM, ESG"},{"id":"mid-europa","name":"Mid Europa Partners","country":"Poland","city":"Warsaw","lat":52.2297,"lng":21.0122,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Mid Europa Fund V","vintage":2018,"fund_number":"Fund V","structure":"Independent","icp_fit":"Watch","next_raise_window":"2024–25","notes":"CEE-specialist. Fund V first close 2018 (€800m). Consumer + healthcare. Verify if Fund VI is now in market.","website":"https://www.mideuropa.com","sectors":"CEE, Consumer, Healthcare"},{"id":"arx-equity","name":"ARX Equity Partners","country":"Austria","city":"Vienna","lat":48.2082,"lng":16.3738,"strategy":"Buyout","icp_band":"LMM","fund_size_band":"$100M–500M","current_fund":"ARX Fund IV","vintage":2020,"fund_number":"Fund IV","structure":"Independent","icp_fit":"Economics","next_raise_window":"2025","notes":"Central/Eastern Europe LMM. Succession + primary buyout. Vienna-based. Check fund size against affordability floor.","website":"https://www.arx.at","sectors":"CEE, Succession Buyouts"},{"id":"equistone","name":"Equistone Partners Europe","country":"UK","city":"London","lat":51.5074,"lng":-0.1278,"strategy":"Buyout","icp_band":"MM","fund_size_band":"$500M–2B","current_fund":"Equistone Fund VII","vintage":2022,"fund_number":"Fund VII","structure":"Independent (HSBC spinout)","icp_fit":"Watch","next_raise_window":"2026–27","notes":"Benelux/France/Germany/Switzerland/UK. Equity €25-200m. Large pan-European franchise — verify buying authority per geography.","website":"https://www.equistonepe.com","sectors":"Business Services, Industrials, Healthcare"}];
+
+const ICP_TIPS = {
+  Strong:    "This firm checks every box. Right fund size, right vintage, independent structure, approaching their next raise. These are your priority targets — reach out now.",
+  Watch:     "The firm looks right on paper but there's one thing to verify in the actual conversation before fully qualifying them — usually timing (fund just closed) or confirming the partner has real buying authority without a CTO or committee above them.",
+  Economics: "The firm fits the strategy and structure perfectly, but their fund is on the smaller end (~£100–150M). The concern is practical: a fund that small generates a limited management fee, and your product needs to be affordable against that budget. Worth a conversation, but go in knowing budget may be tight.",
+  Structure: "Something about how the firm is owned or governed creates a risk that the person you're talking to can't say yes by themselves — e.g. a JV requiring dual approval, a listed firm, or a government-backed investor with procurement rules. Confirm early that your contact can make the buying decision independently."
+};
+
+const state = {
+  activeFilters: { fit: null, band: null, raise: null },
+  selectedCountry: null,
+  sortCol: 'name', sortDir: 1,
+  searchQuery: '',
+  raiseFilter: null
+};
+
+function filteredFirms() {
+  return FIRMS.filter(f => {
+    if (state.activeFilters.fit && f.icp_fit !== state.activeFilters.fit) return false;
+    if (state.activeFilters.band) {
+      if (!f.icp_band.split('/').map(b=>b.trim()).includes(state.activeFilters.band)) return false;
+    }
+    if (state.activeFilters.raise) {
+      const yr = parseInt(state.activeFilters.raise);
+      const w = f.next_raise_window || '';
+      if (yr === 2027) { if (!w.includes('2027') && !w.includes('2028')) return false; }
+      else { if (!w.includes(String(yr))) return false; }
+    }
+    return true;
+  });
+}
+
+// ── TOOLTIP ────────────────────────────────────────────────────────────────
+const icpTip = document.getElementById('icp-tooltip');
+const mapTip = document.getElementById('map-tooltip');
+
+function showIcpTip(el, label, e) {
+  const text = ICP_TIPS[label];
+  if (!text) return;
+  icpTip.textContent = text;
+  icpTip.style.opacity = '1';
+  positionTip(icpTip, e);
+}
+function hideIcpTip() { icpTip.style.opacity = '0'; }
+function positionTip(tip, e) {
+  const x = e.clientX + 14, y = e.clientY - 10;
+  const vw = window.innerWidth;
+  tip.style.left = (x + 280 > vw ? vw - 295 : x) + 'px';
+  tip.style.top  = y + 'px';
+}
+
+document.addEventListener('mousemove', e => {
+  if (icpTip.style.opacity === '1') positionTip(icpTip, e);
+  if (mapTip.style.opacity  === '1') {
+    mapTip.style.left = (e.clientX + 12) + 'px';
+    mapTip.style.top  = (e.clientY - 8)  + 'px';
+  }
+});
+
+// Attach tooltips to filter buttons with data-tip
+document.querySelectorAll('[data-tip]').forEach(el => {
+  el.addEventListener('mouseenter', e => showIcpTip(el, el.dataset.tip, e));
+  el.addEventListener('mouseleave', hideIcpTip);
+});
+
+// ── COLOUR HELPERS ─────────────────────────────────────────────────────────
+const FIT_COLOURS = { Strong:'#2E7D32', Watch:'#B8860B', Economics:'#B94040', Structure:'#2E5F8A' };
+const countryShade = n =>
+  n===0?'#E8E0D0': n<=2?'#D4E4D7': n<=4?'#8FAF95': n<=8?'#5C7A63':'#3B5240';
+
+// ── MAP ────────────────────────────────────────────────────────────────────
+const mapDiv = document.getElementById('europe-map');
+const W = 700, H = 520;
+const svgMap = d3.select('#europe-map').append('svg')
+  .attr('width','100%').attr('height',H).attr('viewBox',`0 0 ${W} ${H}`);
+const projection = d3.geoMercator().center([15,54]).scale(W*1.15).translate([W/2,H/2]);
+const geoPath = d3.geoPath().projection(projection);
+
+const ID_TO_NAME = {
+  826:'UK',276:'Germany',250:'France',380:'Italy',752:'Sweden',578:'Norway',
+  528:'Netherlands',756:'Switzerland',40:'Austria',616:'Poland',724:'Spain',
+  56:'Belgium',208:'Denmark',246:'Finland',203:'Czech Republic',620:'Portugal',
+  348:'Hungary',642:'Romania',300:'Greece',372:'Ireland',703:'Slovakia',
+  191:'Croatia',100:'Bulgaria',688:'Serbia',804:'Ukraine',112:'Belarus',
+  440:'Lithuania',428:'Latvia',233:'Estonia',705:'Slovenia',442:'Luxembourg',352:'Iceland',
+  807:'North Macedonia',499:'Montenegro',8:'Albania',70:'Bosnia and Herz.',498:'Moldova'
+};
+
+(function loadMap() {
+  const ts = document.createElement('script');
+  ts.src = 'https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js';
+  ts.onload = () => {
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json')
+      .then(r => r.json())
+      .then(world => {
+        const countries = topojson.feature(world, world.objects.countries);
+        svgMap._countries = countries;
+        renderMap();
+      });
+  };
+  document.head.appendChild(ts);
+})();
+
+function renderMap() {
+  if (!svgMap._countries) return;
+  const counts = {};
+  filteredFirms().forEach(f => counts[f.country] = (counts[f.country]||0)+1);
+  const europeIds = new Set(Object.keys(ID_TO_NAME).map(Number));
+
+  svgMap.selectAll('.country').remove();
+  svgMap.selectAll('.country')
+    .data(svgMap._countries.features.filter(d => europeIds.has(+d.id)))
+    .join('path').attr('class','country')
+    .attr('d', geoPath)
+    .attr('fill', d => countryShade(counts[ID_TO_NAME[+d.id]]||0))
+    .attr('stroke','#fff').attr('stroke-width',0.6)
+    .style('cursor', d => (counts[ID_TO_NAME[+d.id]]||0)>0?'pointer':'default')
+    .on('mouseenter', function(ev, d) {
+      const cn = ID_TO_NAME[+d.id]; const n = counts[cn]||0;
+      if (n>0) {
+        d3.select(this).attr('stroke','#3B5240').attr('stroke-width',1.5);
+        mapTip.style.opacity='1';
+        mapTip.style.left=(ev.clientX+12)+'px'; mapTip.style.top=(ev.clientY-8)+'px';
+        mapTip.textContent=`${cn} — ${n} firm${n>1?'s':''}`;
+      }
+    })
+    .on('mouseleave', function(ev,d) {
+      d3.select(this).attr('stroke','#fff').attr('stroke-width',0.6);
+      mapTip.style.opacity='0';
+    })
+    .on('click', function(ev,d) {
+      const cn = ID_TO_NAME[+d.id];
+      if ((counts[cn]||0)>0) selectCountry(cn);
+    });
+}
+
+// ── SIDE PANEL ──────────────────────────────────────────────────────────────
+function selectCountry(country) {
+  state.selectedCountry = country;
+  const firms = filteredFirms().filter(f => f.country===country);
+  const strong = firms.filter(f=>f.icp_fit==='Strong').length;
+  const pct = firms.length ? Math.round(strong/firms.length*100) : 0;
+
+  document.getElementById('panel-country-name').textContent = country;
+  document.getElementById('panel-country-sub').textContent =
+    firms.length+' firm'+(firms.length!==1?'s':'')+' match current filters';
+  document.getElementById('panel-fit-pct').textContent = pct+'%';
+  document.getElementById('cs-total').textContent = firms.length;
+  document.getElementById('cs-strong').textContent = strong;
+  document.getElementById('cs-watch').textContent = firms.length - strong;
+  document.getElementById('country-stats-row').style.display = 'block';
+  document.getElementById('panel-empty').style.display = 'none';
+  document.getElementById('firm-detail-box').style.display = 'none';
+
+  const list = document.getElementById('firms-list');
+  list.style.display = 'block';
+  list.innerHTML = firms.map(f => `
+    <div class="firm-card" onclick="showFirmDetail('${f.id}','${country}')">
+      <div class="firm-card-top">
+        <span class="firm-name">${f.name}</span>
+        <span class="fit-badge fit-${f.icp_fit}" data-tip="${f.icp_fit}"
+          onmouseenter="showIcpTip(this,'${f.icp_fit}',event)"
+          onmouseleave="hideIcpTip()">${f.icp_fit}</span>
+      </div>
+      <div class="firm-meta">
+        <span>📍 ${f.city}</span>
+        <span>💼 ${f.icp_band}</span>
+        <span>📅 ${f.vintage}</span>
+      </div>
+      <div class="firm-detail-row">
+        <span class="firm-detail-label">Fund Size</span>
+        <span class="firm-detail-val">${f.fund_size_band}</span>
+      </div>
+      <div class="firm-detail-row">
+        <span class="firm-detail-label">Next Raise</span>
+        <span class="firm-detail-val">${f.next_raise_window}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function showFirmDetail(firmId, country) {
+  const f = FIRMS.find(x=>x.id===firmId); if (!f) return;
+  document.getElementById('firm-detail-box').style.display = 'block';
+  document.getElementById('firm-detail-content').innerHTML = `
+    <div class="detail-back" onclick="selectCountry('${country}')">← Back to ${country}</div>
+    <div class="detail-firm-name">${f.name}</div>
+    <div class="detail-location">📍 ${f.city}, ${f.country}</div>
+    <div class="detail-grid">
+      <div class="detail-field">
+        <div class="detail-field-label">ICP Fit</div>
+        <div class="detail-field-val"><span class="fit-badge fit-${f.icp_fit}"
+          onmouseenter="showIcpTip(this,'${f.icp_fit}',event)"
+          onmouseleave="hideIcpTip()">${f.icp_fit}</span></div>
+      </div>
+      <div class="detail-field"><div class="detail-field-label">Band</div><div class="detail-field-val">${f.icp_band}</div></div>
+      <div class="detail-field"><div class="detail-field-label">Fund Size</div><div class="detail-field-val">${f.fund_size_band}</div></div>
+      <div class="detail-field"><div class="detail-field-label">Strategy</div><div class="detail-field-val">${f.strategy}</div></div>
+      <div class="detail-field"><div class="detail-field-label">Current Fund</div><div class="detail-field-val">${f.current_fund}</div></div>
+      <div class="detail-field"><div class="detail-field-label">Vintage Year</div><div class="detail-field-val">${f.vintage}</div></div>
+      <div class="detail-field"><div class="detail-field-label">Fund Number</div><div class="detail-field-val">${f.fund_number}</div></div>
+      <div class="detail-field"><div class="detail-field-label">Next Raise</div><div class="detail-field-val">${f.next_raise_window}</div></div>
+      <div class="detail-field" style="grid-column:1/-1"><div class="detail-field-label">Structure</div><div class="detail-field-val">${f.structure}</div></div>
+      <div class="detail-field" style="grid-column:1/-1"><div class="detail-field-label">Sector Focus</div><div class="detail-field-val">${f.sectors||'—'}</div></div>
+    </div>
+    <div class="detail-notes">${f.notes}</div>
+    ${f.website?`<a class="detail-website" href="${f.website}" target="_blank" rel="noopener">Visit Website ↗</a>`:''}
+  `;
+  document.getElementById('firm-detail-box').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ── FILTERS ─────────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn[data-filter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const {filter, val} = btn.dataset;
+    if (state.activeFilters[filter]===val) {
+      state.activeFilters[filter]=null; btn.classList.remove('active');
+    } else {
+      document.querySelectorAll(`.filter-btn[data-filter="${filter}"]`).forEach(b=>b.classList.remove('active'));
+      state.activeFilters[filter]=val; btn.classList.add('active');
+    }
+    refresh();
+  });
+});
+
+document.getElementById('clear-filters').addEventListener('click', () => {
+  state.activeFilters={fit:null,band:null,raise:null};
+  state.raiseFilter=null;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.raise-card').forEach(c=>c.classList.remove('active'));
+  clearTableRaiseFilter();
+  resetPanel();
+  refresh();
+});
+
+function resetPanel() {
+  state.selectedCountry=null;
+  document.getElementById('panel-country-name').textContent='Select a Country';
+  document.getElementById('panel-country-sub').textContent='Click a country on the map';
+  document.getElementById('panel-fit-pct').textContent='';
+  document.getElementById('country-stats-row').style.display='none';
+  document.getElementById('panel-empty').style.display='block';
+  document.getElementById('firms-list').style.display='none';
+  document.getElementById('firm-detail-box').style.display='none';
+}
+
+function refresh() {
+  renderMap();
+  updateHeaderStats();
+  renderCharts();
+  if (state.selectedCountry) selectCountry(state.selectedCountry);
+}
+
+function updateHeaderStats() {
+  const f = filteredFirms();
+  document.getElementById('stat-total').textContent = f.length;
+  document.getElementById('stat-strong').textContent = f.filter(x=>x.icp_fit==='Strong').length;
+  document.getElementById('stat-markets').textContent = new Set(f.map(x=>x.country)).size;
+  // Update callout
+  const approaching = FIRMS.filter(f => {
+    const w = f.next_raise_window||'';
+    return w.includes('2025')||w.includes('2026');
+  }).length;
+  document.getElementById('callout-num').textContent = approaching;
+  document.getElementById('callout-strong').textContent = `${approaching} of ${FIRMS.length} firms`;
+}
+
+// ── RAISE WINDOW FILTER ──────────────────────────────────────────────────────
+function setRaiseFilter(yr, cardEl) {
+  document.querySelectorAll('.raise-card').forEach(c=>c.classList.remove('active'));
+  if (state.raiseFilter===yr) {
+    state.raiseFilter=null;
+    clearTableRaiseFilter();
+  } else {
+    state.raiseFilter=yr;
+    cardEl.classList.add('active');
+    filterTableByRaise(yr);
+    setTimeout(()=>{
+      document.getElementById('firm-table-section').scrollIntoView({behavior:'smooth',block:'start'});
+    }, 100);
+  }
+}
+
+function filterTableByRaise(yr) {
+  state.searchQuery='';
+  document.getElementById('table-search').value='';
+  renderTable(filteredFirms(), yr);
+  document.getElementById('table-active-filter-wrap').innerHTML = `
+    <span class="table-active-filter">
+      Next raise: ${yr} <button onclick="clearTableRaiseFilter()">×</button>
+    </span>`;
+}
+
+function clearTableRaiseFilter() {
+  state.raiseFilter=null;
+  document.querySelectorAll('.raise-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('table-active-filter-wrap').innerHTML='';
+  renderTable(filteredFirms(), null);
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────────
+function renderCharts() {
+  const firms = filteredFirms();
+  renderCountryChart(firms);
+  renderDonut(firms);
+  renderVintageChart(firms);
+  renderPriorityGrid(firms);
+  renderRaiseCards(firms);
+  renderTable(firms, state.raiseFilter);
+}
+
+function renderCountryChart(firms) {
+  const counts = {};
+  firms.forEach(f => counts[f.country]=(counts[f.country]||0)+1);
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const max = sorted[0]?.[1]||1;
+  document.getElementById('chart-country').innerHTML = sorted.map(([c,n])=>`
+    <div class="bar-row">
+      <span class="bar-label">${c}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${n/max*100}%;background:var(--forest);"></div></div>
+      <span class="bar-count">${n}</span>
+    </div>`).join('');
+}
+
+function renderDonut(firms) {
+  const counts = {Strong:0,Watch:0,Economics:0,Structure:0};
+  firms.forEach(f => counts[f.icp_fit]=(counts[f.icp_fit]||0)+1);
+  const total = firms.length||1;
+  const entries = Object.entries(counts).filter(([,v])=>v>0);
+  const svg = d3.select('#donut-svg'); svg.selectAll('*').remove();
+  const cx=80,cy=80,r=65,ri=44; let angle=-Math.PI/2;
+  entries.forEach(([k,v])=>{
+    const sweep=v/total*Math.PI*2;
+    const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
+    const x2=cx+r*Math.cos(angle+sweep),y2=cy+r*Math.sin(angle+sweep);
+    const xi1=cx+ri*Math.cos(angle+sweep),yi1=cy+ri*Math.sin(angle+sweep);
+    const xi2=cx+ri*Math.cos(angle),yi2=cy+ri*Math.sin(angle);
+    svg.append('path')
+      .attr('d',`M${x1},${y1} A${r},${r},0,${sweep>Math.PI?1:0},1,${x2},${y2} L${xi1},${yi1} A${ri},${ri},0,${sweep>Math.PI?1:0},0,${xi2},${yi2} Z`)
+      .attr('fill',FIT_COLOURS[k]).attr('opacity',0.9);
+    angle+=sweep;
+  });
+  svg.append('text').attr('x',cx).attr('y',cy-4).attr('text-anchor','middle')
+    .attr('font-size',22).attr('font-weight',700)
+    .attr('font-family',"'Playfair Display',serif").attr('fill','#1E2820').text(total);
+  svg.append('text').attr('x',cx).attr('y',cy+14).attr('text-anchor','middle')
+    .attr('font-size',10).attr('fill','#7A8C7D').text('firms');
+
+  document.getElementById('donut-legend').innerHTML = entries.map(([k,v])=>`
+    <div class="donut-leg-row"
+      onmouseenter="showIcpTip(this,'${k}',event)"
+      onmouseleave="hideIcpTip()">
+      <div class="donut-leg-dot" style="background:${FIT_COLOURS[k]}"></div>
+      <span>${k}</span>
+      <span class="donut-leg-val">${v}</span>
+    </div>`).join('');
+}
+
+function renderVintageChart(firms) {
+  const years = [2017,2018,2019,2020,2021,2022,2023,2024,2025];
+  const counts = {}; firms.forEach(f=>counts[f.vintage]=(counts[f.vintage]||0)+1);
+  const max = Math.max(...years.map(y=>counts[y]||0),1);
+  const barH = 100;
+
+  const cols = years.map(y => {
+    const n = counts[y]||0;
+    const h = n ? Math.max(Math.round(n/max*barH), 8) : 0;
+    const isTarget = y<=2021;
+    return `
+      <div class="vintage-col">
+        ${n>0?`<span class="vintage-num">${n}</span>`:'<span style="font-size:10px;color:transparent">0</span>'}
+        <div class="vintage-bar" style="height:${h}px;background:${isTarget?'var(--forest)':'var(--forest-pale)'};"></div>
+        <span class="vintage-year-label">${y}</span>
+      </div>`;
+  }).join('');
+
+  document.getElementById('chart-vintage').innerHTML = `
+    <div class="vintage-chart-wrap">${cols}</div>
+    <div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);">
+        <div style="width:10px;height:10px;background:var(--forest);border-radius:2px;"></div>Target vintage (2017–21)
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);">
+        <div style="width:10px;height:10px;background:var(--forest-pale);border-radius:2px;"></div>Outside target range
+      </div>
+    </div>`;
+}
+
+function renderPriorityGrid(firms) {
+  const strong = firms.filter(f=>f.icp_fit==='Strong')
+    .sort((a,b)=>{
+      const score = w => w.includes('2025')?0:w.includes('2026')?1:w.includes('2027')?2:3;
+      return score(a.next_raise_window) - score(b.next_raise_window);
+    });
+  if (!strong.length) {
+    document.getElementById('priority-grid').innerHTML = '<p style="color:var(--muted);font-size:13px;">No Strong fit firms match current filters.</p>';
+    return;
+  }
+  document.getElementById('priority-grid').innerHTML = `
+    <div class="priority-grid">
+      ${strong.map(f=>`
+        <div class="priority-card">
+          <div class="priority-card-name">${f.name}</div>
+          <div class="priority-card-meta">
+            <span>📍 ${f.city}, ${f.country}</span>
+            <span>💼 ${f.icp_band}</span>
+          </div>
+          <div class="priority-card-raise">Next raise: ${f.next_raise_window}</div>
+          ${f.website?`<a class="priority-card-link" href="${f.website}" target="_blank" rel="noopener">↗ ${f.website.replace('https://','')}</a>`:''}
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderRaiseCards(firms) {
+  const buckets = {'2025':[],'2026':[],'2027':[],'2028+':[]};
+  firms.forEach(f=>{
+    const w=f.next_raise_window||'';
+    if (w.includes('2025')) buckets['2025'].push(f);
+    else if (w.includes('2026')) buckets['2026'].push(f);
+    else if (w.includes('2027')) buckets['2027'].push(f);
+    else buckets['2028+'].push(f);
+  });
+  const max = Math.max(...Object.values(buckets).map(a=>a.length),1);
+  const colours = {'2025':'var(--strong-green)','2026':'var(--forest)','2027':'var(--forest-pale)','2028+':'var(--muted)'};
+
+  document.getElementById('raise-cards').innerHTML = Object.entries(buckets).map(([yr,list])=>`
+    <div class="raise-card ${state.raiseFilter===yr?'active':''}" onclick="setRaiseFilter('${yr}',this)">
+      <div class="raise-card-num" style="color:${colours[yr]}">${list.length}</div>
+      <div class="raise-card-year">${yr}</div>
+      <div class="raise-card-label">${list.length===1?'firm':'firms'} approaching raise</div>
+      <div class="raise-bar"><div class="raise-bar-fill" style="width:${list.length/max*100}%;background:${colours[yr]};"></div></div>
+    </div>`).join('');
+}
+
+// ── TABLE ──────────────────────────────────────────────────────────────────
+function renderTable(firms, raiseFilterYr) {
+  const query = state.searchQuery.toLowerCase();
+  let rows = firms.filter(f => {
+    if (query && !f.name.toLowerCase().includes(query) &&
+        !f.country.toLowerCase().includes(query) &&
+        !(f.sectors||'').toLowerCase().includes(query)) return false;
+    if (raiseFilterYr) {
+      const w = f.next_raise_window||'';
+      if (raiseFilterYr==='2028+') {
+        if (w.includes('2025')||w.includes('2026')||w.includes('2027')) return false;
+      } else {
+        if (!w.includes(raiseFilterYr)) return false;
+      }
+    }
+    return true;
+  });
+  rows = rows.sort((a,b)=>{
+    const av=a[state.sortCol]||'',bv=b[state.sortCol]||'';
+    return String(av).localeCompare(String(bv),undefined,{numeric:true})*state.sortDir;
+  });
+  document.getElementById('table-count').textContent=`${rows.length} firm${rows.length!==1?'s':''}`;
+  document.getElementById('table-body').innerHTML=rows.map(f=>`
+    <tr>
+      <td>${f.name}</td>
+      <td>${f.country}</td>
+      <td>${f.city}</td>
+      <td><span class="fit-badge fit-${f.icp_fit}"
+        onmouseenter="showIcpTip(this,'${f.icp_fit}',event)"
+        onmouseleave="hideIcpTip()">${f.icp_fit}</span></td>
+      <td>${f.icp_band}</td>
+      <td>${f.fund_size_band}</td>
+      <td>${f.current_fund}</td>
+      <td>${f.vintage}</td>
+      <td>${f.structure}</td>
+      <td>${f.next_raise_window}</td>
+      <td>${f.website?`<a href="${f.website}" target="_blank" rel="noopener" style="color:var(--forest);font-weight:500;text-decoration:none;">↗ Visit</a>`:'—'}</td>
+    </tr>`).join('');
+}
+
+document.querySelectorAll('thead th[data-sort]').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const col=th.dataset.sort;
+    if(state.sortCol===col) state.sortDir*=-1; else{state.sortCol=col;state.sortDir=1;}
+    renderTable(filteredFirms(),state.raiseFilter);
+  });
+});
+document.getElementById('table-search').addEventListener('input',e=>{
+  state.searchQuery=e.target.value;
+  renderTable(filteredFirms(),state.raiseFilter);
+});
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+renderCharts();
+</script>
+</body>
+</html>
